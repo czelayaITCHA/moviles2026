@@ -78,7 +78,7 @@ Cuando aparezca la pantalla de inicio de Android Studio, habrás terminado.
 
 Android Studio se actualiza con frecuencia, así que comprueba si hay actualizaciones. Haz clic en el símbolo de configuración situado en la parte inferior izquierda de la pantalla de bienvenida y selecciona `Check for Updates` en el menú que aparece.
 
-<img width="757" height="644" alt="image" src="https://github.com/user-attachments/assets/68db4ddd-3728-4230-a595-fe4711a672f8" />
+<img width="787" height="642" alt="image" src="https://github.com/user-attachments/assets/22d94331-89ed-4614-befc-1a7fb2e5c077" />
 
 
 Si aparece en la esquina inferior derecha de la pantalla, hay una actualización disponible. Haga clic en `Update` para obtenerla. Si aparece la palabra `Restart`, haga clic para reiniciar.
