@@ -60,13 +60,11 @@ Selección del método de configuración. Seleccione `Estándar` y pulse `Siguie
 
 Pulse `Next`.
 
-<img width="898" height="647" alt="image" src="https://github.com/user-attachments/assets/fe9e9bfa-7691-4e01-8e91-3aa1bbec288d" />
+<img width="896" height="647" alt="image" src="https://github.com/user-attachments/assets/4b5432ca-d17c-4de8-9844-c5d57fae8e57" />
 
+Debe aceptar la licencia, selecciona `Accept` y luego haga click en Next.
 
-Debes aceptar la licencia, selecciona `Accept` y luego haga click en Next.
-
-<img width="897" height="642" alt="image" src="https://github.com/user-attachments/assets/643674cd-3e97-4933-b7ed-e413e33b1a9c" />
-
+<img width="899" height="643" alt="image" src="https://github.com/user-attachments/assets/37fde155-e7c8-408c-8eaf-a921fc272e40" />
 
 Iniciará descarga de componentes. esto puede tardar dependiendo la conexión a internet.
 
