@@ -20,7 +20,7 @@ Ejecute el instalador descargado.
 
 Pulse `Next` cuando aparezca la pantalla `Welcome to Android Studio Setup`.
 
-<img width="496" height="388" alt="image" src="https://github.com/user-attachments/assets/0cb6662e-65c4-4684-bdcd-93c81ff7ff42" />
+<img width="500" height="387" alt="image" src="https://github.com/user-attachments/assets/b270117c-244a-4064-bdf6-964fd8f9ac02" />
 
 Asegúrese de que la opción `Android Virtual Device` está marcada y pulse `Next`.
 
@@ -39,15 +39,14 @@ Pulse `Siguiente` cuando finalice la instalación.
 <img width="498" height="381" alt="image" src="https://github.com/user-attachments/assets/01261dda-0ad5-483d-b2eb-c9c94cf6522e" />
 
 
-Asegúrate de que la opción `Start Android Studio` está marcada y pulsa `Finish`.
+Asegúrase de que la opción `Start Android Studio` está marcada y pulsa `Finish`.
 
-<img width="498" height="387" alt="image" src="https://github.com/user-attachments/assets/26e168cd-423b-4f7d-96f8-3b5fabf95a93" />
+<img width="498" height="381" alt="image" src="https://github.com/user-attachments/assets/33f6fce4-32fd-451a-a4ae-24a9cbf91745" />
 
 Selecciona si quieres permitir que `Android Studio` envíe información de uso a `Google`.<br>
 Si no hay ningún motivo, puede seleccionar "Don´t Send" sin problemas.
 
-<img width="526" height="307" alt="image" src="https://github.com/user-attachments/assets/88e0dbdf-bdfe-4ae9-b9fe-1c0beb7ee0e2" />
-
+<img width="523" height="313" alt="image" src="https://github.com/user-attachments/assets/eaa46f8c-2b8e-4e86-8711-d7806ec2e874" />
 
 Pulse `Next`.
 
