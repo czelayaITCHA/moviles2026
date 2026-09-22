@@ -14,33 +14,25 @@ Después de revisar los términos y condiciones de uso, marque "Leí y acepto lo
 
 <img width="1084" height="506" alt="image" src="https://github.com/user-attachments/assets/c17c23b3-c112-4cd1-ba30-44c5aef63943" />
 
-
-
 Ejecute el instalador descargado.
 
-<img width="953" height="190" alt="image" src="https://github.com/user-attachments/assets/7d17fcc3-df8a-45d3-b96f-e0758d3a0d8e" />
-
+<img width="1347" height="307" alt="image" src="https://github.com/user-attachments/assets/5964c527-a408-4050-89aa-8e591ed892e7" />
 
 Pulse `Next` cuando aparezca la pantalla `Welcome to Android Studio Setup`.
 
-<img width="496" height="381" alt="image" src="https://github.com/user-attachments/assets/956a33f6-d79e-4b70-988c-a45e496b564f" />
-
+<img width="496" height="388" alt="image" src="https://github.com/user-attachments/assets/0cb6662e-65c4-4684-bdcd-93c81ff7ff42" />
 
 Asegúrese de que la opción `Android Virtual Device` está marcada y pulse `Next`.
 
-<img width="499" height="384" alt="image" src="https://github.com/user-attachments/assets/9eed5b2d-9437-41fa-8fa1-29700dbce1f8" />
-
+<img width="501" height="388" alt="image" src="https://github.com/user-attachments/assets/6efd8a06-c945-4744-b045-ed4a14f501ad" />
 
 No es necesario cambiar la ruta de instalación. Presione `Next`.
 
-<img width="497" height="387" alt="image" src="https://github.com/user-attachments/assets/e68eff54-4ab3-4871-b467-7f9efe701e20" />
-
-
+<img width="499" height="389" alt="image" src="https://github.com/user-attachments/assets/63556ba2-8d28-471c-82f3-2b88c59bc331" />
 
 Decide el nombre que aparecerá en el menú Inicio. Si no necesita cambiarlo en particular, pulse `Instalar` tal como está.
 
-<img width="498" height="389" alt="image" src="https://github.com/user-attachments/assets/a679f8b8-bc4f-465f-ac84-538af0b0b0c7" />
-
+<img width="493" height="384" alt="image" src="https://github.com/user-attachments/assets/b0397568-a123-47e4-bbad-7cadc6f629e4" />
 
 Pulse `Siguiente` cuando finalice la instalación.
 
