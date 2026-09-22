@@ -72,8 +72,7 @@ Iniciará descarga de componentes. esto puede tardar dependiendo la conexión a 
 
 Pulse `Finish` cuando la instalación haya terminado.
 
-<img width="900" height="645" alt="image" src="https://github.com/user-attachments/assets/1ea63b0a-7e72-4b5b-be3d-871b2720153a" />
-
+<img width="900" height="643" alt="image" src="https://github.com/user-attachments/assets/fef53466-30c2-4690-89c5-a01a0625fba6" />
 
 Cuando aparezca la pantalla de inicio de Android Studio, habrás terminado.
 
@@ -84,7 +83,7 @@ Android Studio se actualiza con frecuencia, así que comprueba si hay actualizac
 
 Si aparece en la esquina inferior derecha de la pantalla, hay una actualización disponible. Haga clic en `Update` para obtenerla. Si aparece la palabra `Restart`, haga clic para reiniciar.
 
-![image](https://github.com/user-attachments/assets/2d50ba92-92dd-49c3-bc37-c0888f3e6542)
+<img width="787" height="642" alt="image" src="https://github.com/user-attachments/assets/c85aa068-e09c-4ec9-be77-fd05e3b9f3eb" />
 
 Pero si es la última versión de Android Studio y sus componente estan actualizados te mostrará ese mensaje en la esquina inferior derecha 
 <img width="790" height="634" alt="image" src="https://github.com/user-attachments/assets/837a9210-985b-4eff-baee-57ef6582a984" />
