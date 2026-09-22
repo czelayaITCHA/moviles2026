@@ -68,8 +68,7 @@ Debe aceptar la licencia, selecciona `Accept` y luego haga click en Next.
 
 Iniciará descarga de componentes. esto puede tardar dependiendo la conexión a internet.
 
-<img width="899" height="643" alt="image" src="https://github.com/user-attachments/assets/44b4b6e0-51a3-4b77-9178-3ec29865678b" />
-
+<img width="901" height="642" alt="image" src="https://github.com/user-attachments/assets/fa2f29a2-71b1-4510-a4d1-3b338e39581e" />
 
 Pulse `Finish` cuando la instalación haya terminado.
 
