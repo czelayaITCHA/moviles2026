@@ -83,7 +83,6 @@ Android Studio se actualiza con frecuencia, así que comprueba si hay actualizac
 
 Si aparece en la esquina inferior derecha de la pantalla, hay una actualización disponible. Haga clic en `Update` para obtenerla. Si aparece la palabra `Restart`, haga clic para reiniciar.
 
-<img width="787" height="642" alt="image" src="https://github.com/user-attachments/assets/c85aa068-e09c-4ec9-be77-fd05e3b9f3eb" />
-
 Pero si es la última versión de Android Studio y sus componente estan actualizados te mostrará ese mensaje en la esquina inferior derecha 
-<img width="790" height="634" alt="image" src="https://github.com/user-attachments/assets/837a9210-985b-4eff-baee-57ef6582a984" />
+<img width="785" height="645" alt="image" src="https://github.com/user-attachments/assets/f78048b5-c6e7-44b8-815d-b4e08ab76148" />
+
