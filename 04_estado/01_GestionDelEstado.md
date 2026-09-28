@@ -406,3 +406,131 @@ fun ToggleTextFieldEnabledExample() {
 <br>
 ![image](https://github.com/user-attachments/assets/62c449f6-603e-42cf-b5d0-249cdcdf59de)
 
+### **Ejemplo con funcionalidad **
+**Calculadora de Descuentos**, en este ejemplo de crea un pequeña calculadora que captura el precio de algo(puede ser un producto), el porcentaje de descuento y calcula el total y el ahororo obtenido, haciendo uso de gestión de estado y creando funcionalidad a los eventos clicks de los botones
+* Función principal
+```kotlin
+@Composable
+fun DiscountCalculator(modifier: Modifier) {
+    //definimos variables de estado
+    var precio by remember { mutableStateOf("") }
+    var descuento by remember { mutableStateOf("") }
+    var total by remember { mutableStateOf(0.0) }
+    var ahorro by remember { mutableStateOf(0.0) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            //llamamos la función que pinta el card, reutilizandola para mostrar ambos datos
+            ResultCard("Total", total, Modifier.weight(1f))
+            ResultCard("Ahorro", ahorro, Modifier.weight(1f))
+        }
+
+        //Creamos los OutlinedTextField para capturar precio y descuento
+        OutlinedTextField(
+            value = precio,
+            onValueChange = {precio = it},
+            label = {Text("Precio")},
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            isError = error != null,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = descuento,
+            onValueChange = {descuento = it},
+            label = {Text("Descuento (%)")},
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            isError = error != null,
+            modifier = Modifier.fillMaxWidth()
+        )
+        //Mostramos mensaje en caso de error
+        error?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.error)
+        }
+        //Agregamos el boton para hacer los calculos
+        Button(
+            onClick = {
+                //convertimos a Double precio y descuento
+                val p = precio.toDoubleOrNull()
+                val d = descuento.toDoubleOrNull()
+                when {
+                    p == null || d == null -> error = "Digite valores numéricos válidos"
+                    d !in 0.0..100.0 -> error  = "El descuento debe ser entre 0.0 y 100"
+                    else -> {
+                        ahorro = p * d / 100
+                        total = p - ahorro
+                        error = null
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Calcular")
+        }
+        //Boton para limpiar datos
+        OutlinedButton(
+            onClick = {
+                precio = ""
+                descuento = ""
+                total = 0.0
+                ahorro = 0.0
+                error = null
+            },
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Limpiar")
+        }
+    }
+}
+```
+* Función que pinta los cards para mostrar los resultados
+```kotlin
+@Composable
+fun ResultCard(titulo: String, valor: Double, modifier: Modifier = Modifier){
+    Card(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = titulo, style = MaterialTheme.typography.labelLarge)
+            Text(
+                text = "\$%.2f".format(valor)
+            )
+        }
+    }
+}
+```
+* llamar la función principal en onCreate
+```kotlin
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            DemoStateTheme {
+                //llamamos la funcion
+               //OutlinedButtonMessage()
+                //BasicTextFieldExample()
+                //OutlinedButtonContador()
+
+                Scaffold(modifier = Modifier.fillMaxSize()) {innerPadding ->
+                    //invocamos la función principal
+                    DiscountCalculator(modifier = Modifier.padding(innerPadding))
+                }
+
+            }
+        }
+    }
+}
+```
