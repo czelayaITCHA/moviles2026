@@ -406,7 +406,7 @@ fun ToggleTextFieldEnabledExample() {
 <br>
 ![image](https://github.com/user-attachments/assets/62c449f6-603e-42cf-b5d0-249cdcdf59de)
 
-### **Ejemplo con funcionalidad **
+### ** Ejemplo con funcionalidad **
 **Calculadora de Descuentos**, en este ejemplo de crea un pequeña calculadora que captura el precio de algo(puede ser un producto), el porcentaje de descuento y calcula el total y el ahororo obtenido, haciendo uso de gestión de estado y creando funcionalidad a los eventos clicks de los botones
 * Función principal
 ```kotlin
