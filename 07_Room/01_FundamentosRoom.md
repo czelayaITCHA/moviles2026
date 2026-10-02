@@ -758,6 +758,8 @@ com.example.agenda
       └── RegistroContactoView.kt
 ```
 ## **12. Ejercicio adicional**
-**a) Agregar mensaje con Toast** que muestre al usuario que se ha guardado correctamente el contacto
-**b) Implementar dialog de confirm** investigue como implementar dialog de confirmación en la opción de eliminar contacto
-**c) Función editar** implementar la función de editar los datos del contacto
+**a) Agregar mensaje con Toast** que muestre al usuario que se ha guardado correctamente el contacto.
+
+**b) Implementar dialog de confirm** investigue como implementar dialog de confirmación en la opción de eliminar contacto.
+
+**c) Función editar** implementar la función de editar los datos del contacto.
