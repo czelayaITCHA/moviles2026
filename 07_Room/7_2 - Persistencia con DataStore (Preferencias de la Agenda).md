@@ -140,6 +140,7 @@ class AgendaPreferenciasRepository(private val context: Context) {
 
     val ordenLista: Flow<String> = context.agendaDataStore.data
         .map { preferencias -> preferencias[PreferenciasAgenda.ORDEN_LISTA] ?: "nombre" }
+}
 ```
 
 - `context.agendaDataStore.data` es un `Flow<Preferences>` que emite un nuevo valor **cada vez que algo cambia**, así que la UI puede reaccionar en tiempo real.
