@@ -17,7 +17,7 @@ Siguiente tema del módulo (carpeta `09_ConsumirAPI`). Se aplica a la misma **Ag
 
 ### 2.1 ¿Qué es una API REST?
 
-Una **API** es una forma de solicitar datos a un programa que está en otra computadora. Una API **REST** lo hace usando **HTTP**, el mismo protocolo de las páginas web: la app (el *cliente*) envía una **petición** a una url (un *endpoint*) y el servidor devuelve una **respuesta**, casi siempre en formato JSON.
+Una **API** es una forma acordada solicitar datos a un programa que está en otra computadora. Una API **REST** lo hace usando **HTTP**, el mismo protocolo de las páginas web: la app (el *cliente*) envía una **petición** a una url (un *endpoint*) y el servidor devuelve una **respuesta**, casi siempre en formato JSON.
 
 Toda petición lleva un **método HTTP** que dice qué se quiere hacer:
 
@@ -97,7 +97,7 @@ La respuesta, resumida:
 }
 ```
 
-Los datos son **falsos**: no llame ni escriba a esos teléfonos o correos.
+Los datos son **ficticios**: no llame ni escriba a esos teléfonos o correos.
 
 ### 2.5 Dos modelos distintos: DTO y entidad
 
@@ -189,7 +189,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)       // NUEVO
 }
 ```
-  
+
 **`AndroidManifest.xml`:** el permiso de Internet va **antes** de la etiqueta `<application>`:
 
 ```xml
@@ -538,6 +538,62 @@ if (estadoImportacion is EstadoImportacion.Cargando) {
 - **Los datos son ficticios.** Las opciones "Llamar" y "Enviar correo" del menú de la tarjeta funcionan con ellos, pero esos números y correos no pertenecen a nadie: no los use.
 - **Gson en una app publicada:** al activar la minificación (R8), los DTO necesitan reglas de conservación para que Gson los siga encontrando. Para la práctica, en modo *debug*, no es necesario.
 
+### Si los contactos anteriores perdieron su foto de la galería
+
+Al importar contactos, es normal descubrir que los contactos que se agregaron antes con una foto **de la galería** aparecen sin foto, mientras que los importados (y los de la cámara) sí la muestran. No es un problema de Retrofit ni de Coil: la foto de la galería se guardó como una dirección temporal del selector de fotos (`content://media/picker/...`), y Android deja de dar acceso a ella. Si activa un `onError` en el `AsyncImage` y filtra Logcat por esa etiqueta, el motivo aparece así:
+
+```
+SecurityException: Calling uid (...) does not have permission to access picker uri:
+content://media/picker/0/com.android.providers.media.photopicker/media/...
+```
+
+La corrección es copiar la foto a la carpeta interna de la app en el momento de elegirla y guardar la ruta de la copia. Son dos cambios:
+
+**1. CREAR `utils/ImagenUtil.kt`** (paquete `utils`):
+
+```kotlin
+package com.example.agendaapp.utils
+
+import android.content.Context
+import android.net.Uri
+import androidx.core.net.toUri
+import java.io.File
+import java.util.UUID
+
+// Copia la imagen elegida a la carpeta interna de la app y devuelve su dirección (file://...)
+fun copiarImagenALocal(context: Context, uri: Uri): String? = try {
+    val destino = File(context.filesDir, "contacto_${UUID.randomUUID()}.jpg")
+    val entrada = context.contentResolver.openInputStream(uri) ?: return null
+    entrada.use { origen -> destino.outputStream().use { salida -> origen.copyTo(salida) } }
+    destino.toUri().toString()
+} catch (e: Exception) {
+    null
+}
+```
+
+**2. MODIFICAR `ui/views/RegistroContactoView.kt`:** el *launcher* de la galería copia la imagen antes de asignar `fotoUri`.
+
+```kotlin
+// Imports nuevos: androidx.compose.runtime.rememberCoroutineScope, kotlinx.coroutines.Dispatchers,
+// kotlinx.coroutines.launch, kotlinx.coroutines.withContext,
+// com.example.agendaapp.utils.copiarImagenALocal
+val scope = rememberCoroutineScope()                        // NUEVO, junto a val context = LocalContext.current
+
+val seleccionarImagenLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.PickVisualMedia()
+) { uri: Uri? ->
+    if (uri != null) {                                      // CAMBIO
+        scope.launch {
+            val ruta = withContext(Dispatchers.IO) { copiarImagenALocal(context, uri) }
+            if (ruta != null) fotoUri = ruta
+        }
+    }
+}
+```
+
+- Es el mismo cambio que se explica en la guía `7_1` (sección 9.1); aquí se repite porque es en esta guía, al ver juntas las fotos locales y las de Internet, donde el problema se hace visible.
+- Los contactos que ya se guardaron con la dirección antigua **no se recuperan**: hay que editarlos y elegir la foto otra vez, una sola vez. Las fotos importadas de randomuser.me no se ven afectadas, porque son direcciones `https://`.
+
 ## 13. Errores comunes
 
 - **`IllegalArgumentException: baseUrl must end in /`:** a la dirección base de `NetworkModule` le falta la barra final.
@@ -552,6 +608,9 @@ if (estadoImportacion is EstadoImportacion.Cargando) {
 - **`NetworkOnMainThreadException`:** se hizo una llamada síncrona de red en el hilo principal. La función de la interfaz debe ser `suspend`.
 - **"Unresolved reference: toContacto":** falta `import com.example.agendaapp.data.remote.toContacto` en el repositorio. Las funciones de extensión se importan por separado.
 - **El Snackbar sale cada vez que se gira la pantalla:** falta llamar a `viewModel.importacionMostrada()` después de mostrarlo.
+
+* **Los contactos agregados antes con foto de la galería aparecen sin foto, pero los importados sí la muestran (`SecurityException: ... does not have permission to access picker uri`):** se guardó la dirección temporal del selector de fotos. Copie la imagen a `filesDir` con `copiarImagenALocal` (ver la sección 12, *Si los contactos anteriores perdieron su foto de la galería*).
+* **`Unresolved reference: copiarImagenALocal`:** falta el archivo `utils/ImagenUtil.kt`, su `package` no es `com.example.agendaapp.utils`, o falta el `import` en `RegistroContactoView`.
 
 ## 14. Ejercicio propuesto
 
