@@ -73,8 +73,8 @@ Eso tiene tres inconvenientes:
 | `AndroidManifest.xml` | MODIFICAR |
 | `di/AppModule.kt` | CREAR |
 | `data/AgendaDatabase.kt` | MODIFICAR (quitar el singleton manual) |
-| `data/ContactoRepository.kt` | MODIFICAR (`@Inject`) |
-| `data/AgendaPreferenciasRepository.kt` | MODIFICAR (`@Inject`) |
+| `repository/ContactoRepository.kt` | MODIFICAR (`@Inject`) |
+| `repository/AgendaPreferenciasRepository.kt` | MODIFICAR (`@Inject`) |
 | `viewmodel/AgendaViewModel.kt` y `viewmodel/PreferenciasViewModel.kt` | MODIFICAR (`@HiltViewModel`) |
 | `MainActivity.kt` | MODIFICAR (`@AndroidEntryPoint`, se simplifica) |
 | `NavManager`, las vistas, la entidad, el DAO y las claves de DataStore | Sin cambios |
