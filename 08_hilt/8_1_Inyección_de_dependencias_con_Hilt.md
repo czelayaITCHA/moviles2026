@@ -179,7 +179,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAgendaDatabase(@ApplicationContext context: Context): AgendaDatabase =
-        Room.databaseBuilder(context, AgendaDatabase::class.java, "agenda_database")
+        Room.databaseBuilder(context, AgendaDatabase::class.java, "agenda_db")
             .fallbackToDestructiveMigration(dropAllTables = true)   // solo práctica: borra los datos si cambia la versión (ver Errores comunes)
             .build()
 
