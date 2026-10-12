@@ -2,6 +2,8 @@
 
 Siguiente tema del módulo (carpeta `08_hilt`). Se aplica a la misma **AgendaApp** (paquete `com.example.agendaapp`) de las guías `7_1`, `7_2` y `5_1`. Como en las guías anteriores, cada paso indica si hay que **CREAR** un archivo nuevo o **MODIFICAR** uno que ya existe.
 
+Organización de paquetes que supone esta guía: la entidad, el DAO, la base de datos y el DataStore están en `com.example.agendaapp.data`, los repositorios en `com.example.agendaapp.repository` y los `ViewModel` en `com.example.agendaapp.viewmodel`. Por eso los ejemplos incluyen sus `package` e `import` completos.
+
 **Lo importante:** al terminar, la app se ve y funciona **exactamente igual** que antes. Lo que cambia es cómo se construyen los objetos por dentro.
 
 ## 1. Objetivos
@@ -86,7 +88,9 @@ Eso tiene tres inconvenientes:
 **`gradle/libs.versions.toml`:** agregar una línea en cada sección.
 
 ```toml
-# En la sección [versions]
+# En la sección [versions] (kotlin y ksp ya existen: solo cambie el valor)
+kotlin = "2.4.21"
+ksp = "2.3.5"
 hilt = "2.60.1"
 
 # En la sección [plugins]
@@ -126,8 +130,9 @@ dependencies {
 ```
 
 - El compilador de Hilt se agrega con `ksp(...)`, igual que el de Room. El plugin KSP ya está en el proyecto desde la guía `7_1`.
-- Hilt `2.59` en adelante exige **AGP 9** y Gradle 9.1 o superior; a partir de `2.60` también exige `minSdk` 23 o mayor. El proyecto usa AGP 9.4.1, así que cumple. Si su `minSdk` es menor a 23, súbalo.
-- Después de editar, pulse *Sync Now*.
+- Hilt `2.59` en adelante exige **AGP 9** y Gradle 9.1 o superior; a partir de `2.60` también exige `minSdk` 23 o mayor. Esta guía se probó con Hilt `2.60.1` y AGP 9.4.1. Si su `minSdk` es menor a 23, súbalo.
+- **Versión de Kotlin.** Si al compilar aparecen errores como *Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin* o *Unresolved reference 'mutableListOf'* (suelen salir en `AgendaDatabase_Impl.kt`), el compilador es más antiguo que las librerías del proyecto: con versiones recientes de Lifecycle, Coil o Navigation, la librería estándar de Kotlin llega en la serie 2.4. Se corrige subiendo `kotlin` a `2.4.21` en `libs.versions.toml`, que es el valor que usa el plugin `kotlin-compose`, y manteniendo KSP en `2.3.5`.
+- Después de editar, pulse *Sync Now* y haga **Build > Clean Project**.
 
 ## 5. Paso 2 \[CREAR AgendaApplication.kt + MODIFICAR AndroidManifest.xml\] — El punto de entrada de Hilt
 
@@ -180,6 +185,7 @@ object AppModule {
     @Singleton
     fun provideAgendaDatabase(@ApplicationContext context: Context): AgendaDatabase =
         Room.databaseBuilder(context, AgendaDatabase::class.java, "agenda_db")
+            // .addMigrations(MIGRACION_1_2)   // si la declaró en AgendaDatabase.kt: import com.example.agendaapp.data.MIGRACION_1_2
             .fallbackToDestructiveMigration(dropAllTables = true)   // solo práctica: borra los datos si cambia la versión (ver Errores comunes)
             .build()
 
@@ -192,7 +198,7 @@ object AppModule {
 - `@Singleton` asegura **una sola** base de datos. Esto reemplaza al `companion object` con `@Volatile` y `synchronized` que se escribió a mano en la guía `7_1`.
 - `provideContactoDao` recibe la `AgendaDatabase` como parámetro: Hilt ve que la necesita, usa la receta de arriba y se la entrega. No hay que llamar a una función a la otra.
 - En el `builder` deje la misma configuración de migración que ya tenía en `obtenerInstancia` (`Migration` o `fallbackToDestructiveMigration`). Ese código se mueve de aquí.
-- El nombre `"agenda_database"` debe ser el mismo que antes; si se cambia, Room crea una base nueva y vacía.
+- El nombre `"agenda_db"` debe ser el mismo que usaba `obtenerInstancia`; si se cambia, Room crea una base nueva y vacía. Use el nombre que su proyecto ya tenía.
 
 ## 7. Paso 4 \[MODIFICAR data/AgendaDatabase.kt\] — Quitar el singleton manual
 
@@ -213,7 +219,13 @@ abstract class AgendaDatabase : RoomDatabase() {
 Se agrega `@Inject` al constructor de cada repositorio. Con eso Hilt sabe construirlos **sin escribir ninguna receta**:
 
 ```kotlin
-// data/ContactoRepository.kt
+// repository/ContactoRepository.kt
+package com.example.agendaapp.repository
+
+import com.example.agendaapp.data.Contacto
+import com.example.agendaapp.data.ContactoDao
+import javax.inject.Inject
+
 class ContactoRepository @Inject constructor(
     private val dao: ContactoDao
 ) {
@@ -222,42 +234,67 @@ class ContactoRepository @Inject constructor(
 ```
 
 ```kotlin
-// data/AgendaPreferenciasRepository.kt
+// repository/AgendaPreferenciasRepository.kt
+package com.example.agendaapp.repository
+
+import android.content.Context
+import com.example.agendaapp.data.PreferenciasAgenda
+import com.example.agendaapp.data.agendaDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+
 class AgendaPreferenciasRepository @Inject constructor(
-    @ApplicationContext private val context: Context   // NUEVO: @ApplicationContext
+    @ApplicationContext private val context: Context   // NUEVO: sin @ApplicationContext Hilt no sabe qué Context entregar
 ) {
-    // ... el cuerpo queda igual
+    // ... el cuerpo queda igual (conserve también los imports de DataStore que ya tenía)
 }
 ```
 
-- Imports: `javax.inject.Inject` y `dagger.hilt.android.qualifiers.ApplicationContext`.
+- Imports nuevos: `javax.inject.Inject` y `dagger.hilt.android.qualifiers.ApplicationContext`. Como los repositorios están en `repository` y el DAO y el DataStore en `data`, los repositorios importan esas clases desde `com.example.agendaapp.data`.
+- Si todavía tiene los repositorios en `data` y los quiere mover, haga clic derecho sobre el archivo y use **Refactor > Move**: Android Studio corrige los imports en `MainActivity`, los `ViewModel` y `NavManager`.
 - Hilt lee `ContactoRepository @Inject constructor(dao: ContactoDao)`, ve que necesita un `ContactoDao`, y lo busca en `AppModule`. Esa es la cadena que antes se armaba a mano.
-- `@ApplicationContext` le indica a Hilt que el `Context` pedido es el de la aplicación. Es el adecuado para DataStore porque no se queda sujeto a una pantalla que ya se cerró.
+- `@ApplicationContext` es **obligatorio** en el `Context` del repositorio de preferencias: hay un `Context` de aplicación y otro de actividad, y Hilt no adivina cuál. Sin él, la compilación falla con `[Dagger/MissingBinding] android.content.Context cannot be provided without an @Provides-annotated method`. El de aplicación es el adecuado para DataStore porque no queda sujeto a una pantalla que ya se cerró.
+- Los repositorios llevan **solo** `@Inject constructor`. La anotación `@HiltViewModel` va únicamente en los `ViewModel`: puesta en un repositorio, la compilación falla con `[Hilt] @HiltViewModel is only supported on types that subclass androidx.lifecycle.ViewModel`.
 
 ## 9. Paso 6 \[MODIFICAR los ViewModel\] — `@HiltViewModel`
 
 ```kotlin
 // viewmodel/AgendaViewModel.kt
+package com.example.agendaapp.viewmodel
+
+import androidx.lifecycle.ViewModel
+import com.example.agendaapp.repository.ContactoRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
 @HiltViewModel                                        // NUEVO
 class AgendaViewModel @Inject constructor(            // CAMBIO: @Inject constructor
     private val repository: ContactoRepository
 ) : ViewModel() {
-    // ... el cuerpo queda igual
+    // ... el cuerpo queda igual (y sus imports)
 }
 ```
 
 ```kotlin
 // viewmodel/PreferenciasViewModel.kt
+package com.example.agendaapp.viewmodel
+
+import androidx.lifecycle.ViewModel
+import com.example.agendaapp.repository.AgendaPreferenciasRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
 @HiltViewModel                                        // NUEVO
 class PreferenciasViewModel @Inject constructor(      // CAMBIO: @Inject constructor
     private val repository: AgendaPreferenciasRepository
 ) : ViewModel() {
-    // ... el cuerpo queda igual
+    // ... el cuerpo queda igual (y sus imports)
 }
 ```
 
-- Imports: `dagger.hilt.android.lifecycle.HiltViewModel` y `javax.inject.Inject`.
+- Imports: `dagger.hilt.android.lifecycle.HiltViewModel` y `javax.inject.Inject`. Los repositorios se importan desde `com.example.agendaapp.repository`.
 - Los dos `ViewModel` ya reciben su repositorio por el constructor, así que no hay que cambiar nada más: solo se agregan las dos anotaciones.
+- `@HiltViewModel` solo se escribe sobre clases que heredan de `ViewModel`.
 - Este mismo `@HiltViewModel` es el que corrige el error `Cannot create an instance of class AgendaViewModel` que apareció en la guía `7_1`, pero ahora sin escribir una `Factory`.
 
 ## 10. Paso 7 \[MODIFICAR MainActivity.kt\] — Se simplifica
@@ -287,7 +324,7 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-- Import: `dagger.hilt.android.AndroidEntryPoint`. Se pueden borrar los imports de `viewModelFactory` e `initializer`, que ya no se usan.
+- Import: `dagger.hilt.android.AndroidEntryPoint`. Se pueden borrar los imports de `viewModelFactory` e `initializer`, que ya no se usan, igual que los de AgendaDatabase, ContactoRepository y AgendaPreferenciasRepository.
 - `by viewModels()` sin llaves ni fábrica: al estar la `Activity` anotada con `@AndroidEntryPoint`, Hilt se encarga de construir el `ViewModel`.
 - `MainActivity` ya no sabe que existen una base de datos, un DAO o un repositorio.
 
@@ -367,16 +404,35 @@ Y en `MainActivity`: `NavManager()`. El `preferenciasViewModel` de `MainActivity
 ## 13. Errores comunes
 
 - **"Hilt Activity must be attached to an @HiltAndroidApp Application":** falta `@HiltAndroidApp` en `AgendaApplication` o falta `android:name=".AgendaApplication"` en el manifiesto.
-- **"Cannot create an instance of class ...ViewModel" / `NoSuchMethodException`:** al `ViewModel` le falta `@HiltViewModel` o `@Inject constructor`, o a `MainActivity` le falta `@AndroidEntryPoint`.
+- **"Cannot create an instance of class ...ViewModel" / `NoSuchMethodException: ...ViewModel.<init> []`:** Android intentó crear el `ViewModel` sin Hilt y no encontró un constructor sin parámetros. Para saber qué falta, mire el registro de la excepción: si **no** aparece `HiltViewModelFactory`, falta `@AndroidEntryPoint` en `MainActivity`; si **sí** aparece, al `ViewModel` le falta `@HiltViewModel` o `@Inject constructor`.
+- **`[Hilt] @HiltViewModel is only supported on types that subclass androidx.lifecycle.ViewModel`:** la anotación `@HiltViewModel` quedó sobre una clase que no es un `ViewModel` (por ejemplo, un repositorio). El mensaje indica el archivo y la línea. Los repositorios llevan solo `@Inject constructor`.
+- **`[Dagger/MissingBinding] android.content.Context cannot be provided without an @Provides-annotated method`:** una clase pide un `Context` sin indicar cuál. Agregue `@ApplicationContext` al parámetro (import `dagger.hilt.android.qualifiers.ApplicationContext`).
 - **"\[Dagger/MissingBinding\] ContactoDao cannot be provided without an @Provides-annotated method":** falta la receta en `AppModule`, o el módulo no tiene `@Module` y `@InstallIn(SingletonComponent::class)`.
+- **Muchos errores en `AgendaDatabase_Impl.kt` (*Class 'kotlin.Unit' was compiled with an incompatible version of Kotlin*, *Unresolved reference 'mutableListOf'*):** el compilador de Kotlin es más antiguo que la librería estándar que traen las dependencias. Suba `kotlin` a `2.4.21` en `libs.versions.toml` (Paso 1), sincronice y haga **Build > Clean Project**.
 - **Error de Gradle al sincronizar mencionando AGP o Gradle:** Hilt 2.59 o posterior exige AGP 9 y Gradle 9.1 o superior. Revise las versiones.
 - **Se usa `kapt` en lugar de `ksp`:** el proyecto no tiene `kapt`. El compilador de Hilt va con `ksp(libs.hilt.compiler)`.
-- **Los contactos desaparecieron:** el nombre del archivo de la base de datos en `AppModule` no coincide con el que se usaba antes (`"agenda_database"`), o la versión de `@Database` cambió y se activó la migración destructiva.
-- **Dos bases de datos abiertas:** quedó el `companion object` con `obtenerInstancia` en `AgendaDatabase` junto con el módulo de Hilt.
+- **Los contactos desaparecieron:** el nombre del archivo de la base de datos en `AppModule` no coincide con el que se usaba antes (`"agenda_db"`), o la versión de `@Database` cambió y se activó la migración destructiva.
+- **Dos bases de datos abiertas:** quedó el `companion object` con `obtenerInstancia` en `AgendaDatabase` junto con el módulo de Hilt. Busque `obtenerInstancia` con **Ctrl+Shift+F**: no debe quedar ninguna llamada.
 - **Imports equivocados:** `HiltViewModel` es `dagger.hilt.android.lifecycle.HiltViewModel`, `Inject` es `javax.inject.Inject`, y `InstallIn` es `dagger.hilt.InstallIn`.
 
 * **"A migration from 2 to 3 was required but not found" (los números pueden variar):** la base de datos guardada en el teléfono tiene una versión distinta a la de `@Database`, y el `builder` de `AppModule` no tiene ni una `Migration` para ese salto ni `fallbackToDestructiveMigration`. Solución para práctica: agregar `.fallbackToDestructiveMigration(dropAllTables = true)` al `builder` (borra los contactos guardados). Para conservar los datos: si la estructura de la tabla no cambió entre esas versiones, agregar una migración vacía, `object : Migration(2, 3) { override fun migrate(db: SupportSQLiteDatabase) {} }`, y registrarla con `.addMigrations(...)`.
 * **No se puede "bajar" el número de versión:** si la base del teléfono ya está en la versión 3, poner `version = 2` hace que Room falle por intentar retroceder. Siempre se sube.
+
+### Cuando la app se cierra y Logcat no muestra el error
+
+Un cierre inmediato al abrir casi siempre es una excepción de Hilt, pero el registro del teléfono mezcla cientos de líneas de otras aplicaciones. Para ver solo la causa:
+
+1. En la ventana **Logcat**, limpie los registros con el icono del bote de basura y escriba en el buscador `package:mine`. Si no aparece nada, pruebe con `tag:AndroidRuntime`. Busque la línea `FATAL EXCEPTION` y, debajo, la que empieza con `Caused by:`: esa es la causa real.
+2. Compruebe en la pestaña **Build** que la compilación terminó en *BUILD SUCCESSFUL*. Si no compiló, el teléfono sigue ejecutando la versión anterior de la app y los cambios no se ven.
+3. Si Logcat sigue sin mostrarlo, pida solo las caídas con `adb`. En Windows, `adb` no siempre está en el `PATH`; en la terminal de Android Studio (PowerShell):
+
+```powershell
+$env:Path += ";$env:LOCALAPPDATA\Android\Sdk\platform-tools"
+adb devices
+adb -s IDENTIFICADOR logcat -b crash -d
+```
+
+Reemplace `IDENTIFICADOR` por el que muestra `adb devices`. Si hay más de un dispositivo conectado (por ejemplo, un teléfono y un emulador), `adb` responde *more than one device/emulator* y hay que indicar cuál con `-s`. Pegue en la terminal solo los comandos, no el texto de errores anteriores.
 
 ## 14. Ejercicio propuesto
 
