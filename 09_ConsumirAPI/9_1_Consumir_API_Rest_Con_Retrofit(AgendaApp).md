@@ -17,7 +17,7 @@ Siguiente tema del módulo (carpeta `09_ConsumirAPI`). Se aplica a la misma **Ag
 
 ### 2.1 ¿Qué es una API REST?
 
-Una **API** es una forma acordada solicitar datos a un programa que está en otra computadora. Una API **REST** lo hace usando **HTTP**, el mismo protocolo de las páginas web: la app (el *cliente*) envía una **petición** a una url (un *endpoint*) y el servidor devuelve una **respuesta**, casi siempre en formato JSON.
+Una **API** es una forma acordada de solicitar datos a un programa que está en otra computadora. Una API **REST** lo hace usando **HTTP**, el mismo protocolo de las páginas web: la app (el *cliente*) envía una **petición** a una url (un *endpoint*) y el servidor devuelve una **respuesta**, casi siempre en formato JSON.
 
 Toda petición lleva un **método HTTP** que dice qué se quiere hacer:
 
