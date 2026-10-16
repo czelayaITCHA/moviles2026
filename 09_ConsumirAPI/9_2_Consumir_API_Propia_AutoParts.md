@@ -97,6 +97,29 @@ http
 
 Además, mientras `@EnableMethodSecurity` esté activo, cada `@PreAuthorize` sigue exigiendo rol aunque la ruta esté permitida. Para la práctica hay que comentar esas anotaciones del controlador (o desactivar la seguridad por método). Estos cambios nunca se llevan a producción: la guía 9\_3 los revierte y usa el login.
 
+* Recuerda recompilar el servicio de la API en docker, de la siguiente manera:
+1. Detener los contenedores, en caso de estar iniciados
+   ```bash
+   docker compose down
+   ```
+2. compilar el servicio de la API
+   ```bash
+   docker compose up -d --build --no-deps api
+   ```
+3. iniciar los contenedores
+```bash
+docker compose up -d
+```
+
+Ahora si haces esto, desde una ventana PowerShell  de la PC anfitrión
+```bash
+Invoke-RestMethod http://localhost:8080/api/repuestos-servicios | Format-Table id, nombre, precio, tipo
+```
+Debes ver como resultado algo similar a:
+
+<img width="1101" height="260" alt="image" src="https://github.com/user-attachments/assets/fcfb28cf-a3da-4944-9d2b-aed52f01e200" />
+
+
 ### 0.3 Enlazar el puerto con adb reverse
 
 Conecte el teléfono por USB con la depuración USB activada y ejecute, desde la carpeta `platform-tools` del SDK (normalmente `%LOCALAPPDATA%\Android\Sdk\platform-tools`):
@@ -107,6 +130,8 @@ adb reverse tcp:8080 tcp:8080
 ```
 
 Prueba rápida: abra Chrome en el teléfono y entre a `http://localhost:8080/api/repuestos-servicios`. Si muestra el JSON, la conexión está lista.
+
+<img width="384" height="853" alt="image" src="https://github.com/user-attachments/assets/fc8c3192-dd7f-413d-aae3-0b96d9cfe064" />
 
 - El enlace se pierde al desconectar el cable o reiniciar `adb`: vuelva a ejecutar `adb reverse`.
 - En el emulador también funciona; la alternativa es usar `http://10.0.2.2:8080/`, pero conviene que todos usen la misma URL.
