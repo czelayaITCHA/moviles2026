@@ -666,7 +666,7 @@ class RepuestosViewModel @Inject constructor(
 
             resultado
                 .onSuccess { guardado ->
-                    _detalle.value = guardado          // NUEVO: el detalle muestra los datos ya actualizados
+                    _detalle.value = guardado         
                     _mensaje.value =
                         if (id == null) "Registrado correctamente" else "Actualizado correctamente"
                     cargar()
@@ -676,7 +676,7 @@ class RepuestosViewModel @Inject constructor(
         }
     }
 
-    // CAMBIO: avisa cuando termina bien, para que el detalle pueda volver a la lista
+    // avisa cuando termina bien, para que el detalle pueda volver a la lista
     fun eliminar(id: Int, alTerminar: () -> Unit = {}) {
         viewModelScope.launch {
             repositorio.eliminar(id)
@@ -1285,9 +1285,6 @@ Aquí vive el `Scaffold` raíz. La barra inferior se dibuja **solo cuando la rut
 ```kotlin
 package com.example.autoparts.navigation
 
-// Imports poco evidentes: androidx.navigation.NavGraph.Companion.findStartDestination,
-// androidx.navigation.compose.currentBackStackEntryAsState, androidx.navigation.navArgument,
-// androidx.navigation.NavType y androidx.compose.foundation.layout.WindowInsets
 @Composable
 fun NavManager(viewModel: RepuestosViewModel) {
     val navController = rememberNavController()
