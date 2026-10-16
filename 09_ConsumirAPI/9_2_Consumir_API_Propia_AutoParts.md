@@ -486,7 +486,7 @@ import javax.inject.Inject
 // Foto elegida por el usuario, ya leída de la galería
 class ImagenSeleccionada(val bytes: ByteArray, val mime: String)
 
-class RepuestoRepository @Inject constructor(      // CAMBIO: Hilt entrega la API
+class RepuestoRepository @Inject constructor(
     private val api: RepuestoApi
 ) {
     private val gson = Gson()
