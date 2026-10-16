@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Al terminar, **AutoParts** lista, crea, edita y elimina repuestos y servicios consumiendo la API Spring Boot que ya corre en Docker dentro de WSL, sin autenticación (el login se agrega en la guía 9\_3).
+Al terminar, **AutoParts** es un catálogo de repuestos y servicios con **barra de navegación inferior** (Catálogo, Repuestos y Servicios), un **buscador** que filtra mientras se escribe, una **vista de detalle** que se abre al tocar una tarjeta, y permite crear, editar y eliminar registros consumiendo la API Spring Boot que ya corre en Docker dentro de WSL, sin autenticación (el login se agrega en la guía 9\_3).
 
 La app usa estos cinco endpoints de `RepuestoServicioController`:
 
@@ -21,7 +21,15 @@ Lo nuevo respecto a la guía 9\_1:
 - Las fotos se sirven desde `http://localhost:8080/images/{foto}`, fuera de `/api`.
 - El servidor corre en la PC del estudiante, por lo que la conexión se prepara con `adb reverse` (Paso 0).
 
-El proyecto sigue la misma arquitectura de `AgendaApp`: **Hilt** (guía `8_1`) entrega `Retrofit`, el repositorio y el `ViewModel`, igual que en la guía `9_1`. Para centrarse en Retrofit y en el envío de imágenes, **no usa Room ni DataStore**.
+El proyecto sigue la misma arquitectura de la `AgendaApp`: **Hilt** (guía `8_1`) entrega `Retrofit`, el repositorio y el `ViewModel`, igual que en la guía `9_1`. Para centrarse en Retrofit y en el envío de imágenes, **no usa Room ni DataStore**.
+
+Las pantallas de la app:
+
+| Pantalla | Cómo se llega | Qué muestra o hace |
+| --- | --- | --- |
+| **Catálogo**, **Repuestos** y **Servicios** | Barra de navegación inferior | Lista de tarjetas con buscador. Catálogo muestra todo; las otras dos filtran por tipo |
+| **Detalle** | Tocar una tarjeta | Foto grande, tipo, precio, existencias y descripción completa, con las acciones Editar y Eliminar (`GET /repuestos-servicios/{id}`) |
+| **Formulario** | Botón **+** o Editar en el detalle | Crear o editar con foto de galería |
 
 ## Paso 0: preparar la conexión
 
@@ -269,12 +277,13 @@ Y regístrela en el manifiesto, junto con el permiso de Internet y el tráfico s
 
 - Sin `android:name`, la app se cierra al abrir con el error *Hilt Activity must be attached to an @HiltAndroidApp Application*.
 - Si el proyecto no compila y aparecen errores de *incompatible version of Kotlin*, revise el valor de `kotlin` (explicado en la guía `8_1`).
+
 ### 1.3 Estructura de paquetes
 
 ```text
 com.example.autoparts
 ├── AutoPartsApplication.kt         (@HiltAndroidApp)
-├── MainActivity.kt                 (@AndroidEntryPoint; NavHost: lista y formulario)
+├── MainActivity.kt                 (@AndroidEntryPoint; llama a NavManager)
 ├── data/
 │    └── remote/
 │         ├── RepuestoDto.kt        (DTOs y enum TipoItem)
@@ -286,10 +295,14 @@ com.example.autoparts
 │    └── RepuestoRepository.kt      (@Inject constructor; también ImagenSeleccionada)
 ├── viewmodel/
 │    └── RepuestosViewModel.kt      (@HiltViewModel)
+├── navigation/
+│    ├── Destino.kt                 (las 3 pestañas de la barra inferior)
+│    └── NavManager.kt              (Scaffold + NavigationBar + NavHost)
 └── ui/
      ├── components/RepuestoCard.kt
      └── views/
-          ├── ListaRepuestosView.kt
+          ├── ListaRepuestosView.kt      (buscador y filtro por tipo)
+          ├── DetalleRepuestoView.kt
           └── FormularioRepuestoView.kt
 ```
 
@@ -422,7 +435,6 @@ Cuando un `@Part` es `null`, Retrofit simplemente no incluye esa parte en la pet
 Guarde en un solo lugar las dos direcciones del servidor: la API (`/api/`) y las fotos (`/images/`). La `baseUrl` de Retrofit debe terminar en `/`.
 
 ```kotlin
-// data/remote/ApiConfig.kt
 package com.example.autoparts.data.remote
 
 object ApiConfig {
@@ -438,7 +450,6 @@ object ApiConfig {
 ```
 
 ```kotlin
-// di/NetworkModule.kt
 package com.example.autoparts.di
 
 import com.example.autoparts.data.remote.ApiConfig
@@ -493,7 +504,6 @@ El nivel `BASIC` registra solo método, ruta y código. Con `BODY` el registro i
 El repositorio hace tres cosas: arma el `RequestBody` JSON de la parte `dto`, arma la parte `imagen` y convierte las excepciones de red en mensajes legibles dentro de un `Result`.
 
 ```kotlin
-// repository/RepuestoRepository.kt
 package com.example.autoparts.repository
 
 import com.example.autoparts.data.remote.RepuestoApi
@@ -511,7 +521,7 @@ import javax.inject.Inject
 // Foto elegida por el usuario, ya leída de la galería
 class ImagenSeleccionada(val bytes: ByteArray, val mime: String)
 
-class RepuestoRepository @Inject constructor(
+class RepuestoRepository @Inject constructor(      
     private val api: RepuestoApi
 ) {
     private val gson = Gson()
@@ -570,7 +580,7 @@ class RepuestoRepository @Inject constructor(
 
 ## Paso 5: el ViewModel
 
-Un solo `RepuestosViewModel` atiende la lista y el formulario. Expone cuatro estados: la lista (con `cargando` y `error`), el detalle que se edita, si hay un guardado en curso y un mensaje de una sola vez para el `Snackbar`.
+Un solo `RepuestosViewModel` atiende la lista, el detalle y el formulario. Expone cuatro estados: la lista (con `cargando` y `error`), el detalle que se edita, si hay un guardado en curso y un mensaje de una sola vez para el `Snackbar`.
 
 Cree `viewmodel/RepuestosViewModel.kt`:
 
@@ -578,17 +588,17 @@ Cree `viewmodel/RepuestosViewModel.kt`:
 package com.example.autoparts.viewmodel
 
 import androidx.lifecycle.ViewModel
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
+import com.example.autoparts.data.remote.RepuestoDto
 import com.example.autoparts.repository.ImagenSeleccionada
 import com.example.autoparts.repository.RepuestoRepository
-import com.example.autoparts.data.remote.RepuestoDto
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class ListaUiState(
     val cargando: Boolean = false,
@@ -604,6 +614,7 @@ class RepuestosViewModel @Inject constructor(
     private val _estado = MutableStateFlow(ListaUiState())
     val estado: StateFlow<ListaUiState> = _estado.asStateFlow()
 
+    // Ítem que muestran el detalle y el formulario de edición
     private val _detalle = MutableStateFlow<RepuestoDto?>(null)
     val detalle: StateFlow<RepuestoDto?> = _detalle.asStateFlow()
 
@@ -628,7 +639,7 @@ class RepuestosViewModel @Inject constructor(
         }
     }
 
-    // GET /repuestos-servicios/{id}: datos frescos del servidor para el formulario de edición
+    // GET /repuestos-servicios/{id}: datos frescos del servidor para el detalle y la edición
     fun cargarDetalle(id: Int) {
         viewModelScope.launch {
             repositorio.obtenerPorId(id)
@@ -654,7 +665,8 @@ class RepuestosViewModel @Inject constructor(
             _guardando.value = false
 
             resultado
-                .onSuccess {
+                .onSuccess { guardado ->
+                    _detalle.value = guardado          // NUEVO: el detalle muestra los datos ya actualizados
                     _mensaje.value =
                         if (id == null) "Registrado correctamente" else "Actualizado correctamente"
                     cargar()
@@ -664,10 +676,15 @@ class RepuestosViewModel @Inject constructor(
         }
     }
 
-    fun eliminar(id: Int) {
+    // CAMBIO: avisa cuando termina bien, para que el detalle pueda volver a la lista
+    fun eliminar(id: Int, alTerminar: () -> Unit = {}) {
         viewModelScope.launch {
             repositorio.eliminar(id)
-                .onSuccess { mensaje -> _mensaje.value = mensaje; cargar() }
+                .onSuccess { mensaje ->
+                    _mensaje.value = mensaje
+                    cargar()
+                    alTerminar()
+                }
                 .onFailure { _mensaje.value = it.message }
         }
     }
@@ -679,3 +696,783 @@ class RepuestosViewModel @Inject constructor(
 Con Hilt, el repositorio llega por el constructor (@Inject) y la anotación @HiltViewModel le enseña a Hilt a construir este ViewModel; por eso se puede crear con `viewModel()` sin fábrica, que es lo que se usa en `MainActivity`.
 
 Después de crear, editar o eliminar, el ViewModel vuelve a pedir la lista completa al servidor (`cargar()`), de modo que la pantalla siempre muestra lo que el servidor tiene realmente.
+
+## Paso 6: la tarjeta, la lista con buscador y el detalle
+
+La lista usa `LazyColumn` con una tarjeta por ítem y un **buscador** arriba. Una misma pantalla, `ListaRepuestosView`, sirve para las tres pestañas: recibe el `tipo` que debe mostrar (`null` para todos) y filtra primero por tipo y luego por el texto escrito. Coil descarga cada foto desde `http://localhost:8080/images/{foto}` y, cuando `foto` es `null` (todos los servicios y algún repuesto), se muestra un icono en su lugar. Al tocar una tarjeta se abre el **detalle** del ítem.
+
+En estos archivos Android Studio importa casi todo con **Alt+Enter**. Estos dos imports son fáciles de equivocar: `coil3.compose.AsyncImage` y `androidx.lifecycle.compose.collectAsStateWithLifecycle`.
+
+### components/RepuestoCard.kt
+
+```kotlin
+package com.example.autoparts.ui.components
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RepuestoCard(
+    item: RepuestoDto,
+    onClick: () -> Unit,                // toda la tarjeta es tocable: abre el detalle
+    modifier: Modifier = Modifier
+) {
+    ElevatedCard(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                val url = ApiConfig.urlFoto(item.foto)
+                if (url != null) {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = item.nombre,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(Icons.Default.Build, contentDescription = null)
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(item.nombre, style = MaterialTheme.typography.titleMedium)
+                if (!item.descripcion.isNullOrBlank()) {
+                    Text(
+                        item.descripcion,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    "$" + "%.2f".format(item.precio),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    if (item.tipo == TipoItem.REPUESTO) "Repuesto · Stock: ${item.stock}"
+                    else "Servicio",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+    }
+}
+```
+
+La tarjeta ya no lleva los botones de editar y eliminar: esas acciones pasan al detalle. No se necesita `material-icons-extended`: `Build`, `Edit`, `Delete`, `Add`, `Refresh`, `Search`, `Clear`, `ShoppingCart`, `Settings` y `ArrowBack` están en el conjunto básico de iconos.
+
+### views/ListaRepuestosView.kt
+
+```kotlin
+package com.example.autoparts.ui.views
+
+// Imports poco evidentes: androidx.compose.runtime.saveable.rememberSaveable y
+// androidx.compose.foundation.layout.WindowInsets
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ListaRepuestosView(
+    viewModel: RepuestosViewModel,
+    tipo: TipoItem?,                  // null = todos; REPUESTO o SERVICIO = solo ese tipo
+    titulo: String,
+    onAbrirDetalle: (Int) -> Unit,
+    onNuevo: () -> Unit
+) {
+    val estado by viewModel.estado.collectAsStateWithLifecycle()
+    val mensaje by viewModel.mensaje.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var busqueda by rememberSaveable { mutableStateOf("") }      // sobrevive a girar la pantalla
+
+    // Filtro: primero por tipo (la pestaña) y luego por el texto escrito
+    val visibles = remember(estado.repuestos, tipo, busqueda) {
+        val texto = busqueda.trim()
+        estado.repuestos.filter { item ->
+            (tipo == null || item.tipo == tipo) &&
+                (texto.isEmpty() ||
+                    item.nombre.contains(texto, ignoreCase = true) ||
+                    item.descripcion.orEmpty().contains(texto, ignoreCase = true))
+        }
+    }
+
+    // Muestra cada mensaje del ViewModel una sola vez
+    LaunchedEffect(mensaje) {
+        mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.mensajeMostrado()
+        }
+    }
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),   // la barra inferior ya cuida ese espacio
+        topBar = {
+            TopAppBar(
+                title = { Text(titulo) },
+                actions = {
+                    IconButton(onClick = { viewModel.cargar() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNuevo) {
+                Icon(Icons.Default.Add, contentDescription = "Nuevo")
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            if (estado.cargando) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+
+            // Buscador tipo píldora
+            OutlinedTextField(
+                value = busqueda,
+                onValueChange = { busqueda = it },
+                placeholder = { Text("Buscar por nombre o descripción") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (busqueda.isNotEmpty()) {
+                        IconButton(onClick = { busqueda = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Borrar búsqueda")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            when {
+                estado.error != null && estado.repuestos.isEmpty() -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(estado.error!!, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { viewModel.cargar() }) { Text("Reintentar") }
+                    }
+                }
+                visibles.isEmpty() && !estado.cargando -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (busqueda.isBlank()) "Aún no hay registros"
+                            else "Sin resultados para \"$busqueda\""
+                        )
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(visibles, key = { it.id ?: it.nombre }) { item ->
+                            RepuestoCard(
+                                item = item,
+                                onClick = { item.id?.let(onAbrirDetalle) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+Con los datos de ejemplo del servidor, la pestaña **Catálogo** muestra ocho tarjetas, **Repuestos** muestra las cinco que tienen foto y **Servicios** las tres que usan el icono de herramienta. Si escribe `freno` en el buscador, quedan tres: *Pastillas de freno delanteras*, *Disco de frenos* y *Mantenimiento de frenos*. El buscador ignora mayúsculas y minúsculas, pero no los acentos: `limpieza` encuentra *Limpieza de inyectores*, pero `diametro` no encuentra la descripción "díametro 266mm" de *Disco de frenos*.
+
+La pantalla de error con el botón **Reintentar** es la que verá el estudiante cuando falte `adb reverse` o el contenedor esté detenido; el mensaje ya le indica qué revisar.
+
+### views/DetalleRepuestoView.kt
+
+Al tocar una tarjeta se abre esta pantalla. Pide el ítem completo al servidor con `GET /repuestos-servicios/{id}` (`cargarDetalle`) y muestra todos sus datos. Desde aquí se **edita** (abre el formulario) y se **elimina** (con confirmación).
+
+```kotlin
+package com.example.autoparts.ui.views
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DetalleRepuestoView(
+    viewModel: RepuestosViewModel,
+    id: Int,
+    onVolver: () -> Unit,
+    onEditar: () -> Unit
+) {
+    val detalle by viewModel.detalle.collectAsStateWithLifecycle()
+    val mensaje by viewModel.mensaje.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var confirmarBorrado by remember { mutableStateOf(false) }
+
+    // Pide al servidor el ítem completo cada vez que se entra a la pantalla
+    LaunchedEffect(id) { viewModel.cargarDetalle(id) }
+
+    // Si el ViewModel todavía guarda el ítem de otra pantalla, se ignora hasta que llegue el correcto
+    val item = detalle?.takeIf { it.id == id }
+
+    LaunchedEffect(mensaje) {
+        mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.mensajeMostrado()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(item?.nombre ?: "Detalle") },
+                navigationIcon = {
+                    IconButton(onClick = onVolver) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
+                actions = {
+                    if (item != null) {
+                        IconButton(onClick = onEditar) {
+                            Icon(Icons.Default.Edit, contentDescription = "Editar")
+                        }
+                        IconButton(onClick = { confirmarBorrado = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Eliminar")
+                        }
+                    }
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        if (item == null) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Foto grande
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val url = ApiConfig.urlFoto(item.foto)
+                    if (url != null) {
+                        AsyncImage(
+                            model = url,
+                            contentDescription = item.nombre,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(64.dp))
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(item.nombre, style = MaterialTheme.typography.headlineSmall)
+
+                    FilaDato("Tipo", if (item.tipo == TipoItem.REPUESTO) "Repuesto" else "Servicio")
+                    FilaDato("Precio", "$" + "%.2f".format(item.precio))
+                    if (item.tipo == TipoItem.REPUESTO) {
+                        FilaDato("Existencias", if (item.stock == 0) "Sin existencias" else "${item.stock} unidades")
+                    }
+                    FilaDato("Código", "#${item.id}")
+
+                    HorizontalDivider()
+
+                    Text("Descripción", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        item.descripcion?.takeIf { it.isNotBlank() } ?: "Sin descripción",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+        }
+    }
+
+    if (confirmarBorrado && item != null) {
+        AlertDialog(
+            onDismissRequest = { confirmarBorrado = false },
+            title = { Text("Eliminar registro") },
+            text = { Text("¿Eliminar \"${item.nombre}\"? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmarBorrado = false
+                    viewModel.eliminar(id, onVolver)      // vuelve a la lista solo si se eliminó bien
+                }) { Text("Eliminar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmarBorrado = false }) { Text("Cancelar") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun FilaDato(etiqueta: String, valor: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(etiqueta, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(valor, fontWeight = FontWeight.SemiBold)
+    }
+}
+```
+
+- `detalle?.takeIf { it.id == id }` evita mostrar por un instante los datos de otro ítem que quedaron en el `ViewModel`; mientras llega el correcto se ve el indicador de carga.
+- Al **editar y guardar**, el `ViewModel` actualiza `detalle` con la respuesta del servidor, así que al volver a esta pantalla ya aparecen los datos nuevos.
+- Al **eliminar**, `eliminar(id, onVolver)` regresa a la lista solo si el servidor respondió bien; si falla, se queda aquí y el mensaje aparece en el `Snackbar`.
+- Este `Scaffold` no cambia `contentWindowInsets`: aquí no hay barra inferior, así que la pantalla debe respetar por sí misma el espacio de los botones del sistema.
+
+## Paso 7: formulario para crear y editar con imagen
+
+Un solo formulario sirve para las dos operaciones: con `id == null` crea (POST) y con un `id` edita (PUT). La foto se elige de la galería con `PickVisualMedia`, que no requiere permisos, y sus bytes se leen en segundo plano para enviarlos como parte `imagen`.
+
+Reglas del formulario:
+
+- `nombre` obligatorio, `precio` mayor que 0, `stock` entero desde 0.
+- Si el tipo es `SERVICIO`, el campo stock se oculta y se envía `0`.
+- Al editar, si no se elige una foto nueva no se envía la parte `imagen` y el servidor conserva la anterior.
+
+### views/FormularioRepuestoView.kt
+
+```kotlin
+package com.example.autoparts.ui.views
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FormularioRepuestoView(
+    viewModel: RepuestosViewModel,
+    id: Int?,                 // null = nuevo, valor = editar
+    onVolver: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val detalle by viewModel.detalle.collectAsStateWithLifecycle()
+    val guardando by viewModel.guardando.collectAsStateWithLifecycle()
+    val mensaje by viewModel.mensaje.collectAsStateWithLifecycle()
+
+    var nombre by remember { mutableStateOf("") }
+    var descripcion by remember { mutableStateOf("") }
+    var precioTexto by remember { mutableStateOf("") }
+    var stockTexto by remember { mutableStateOf("") }
+    var tipo by remember { mutableStateOf(TipoItem.REPUESTO) }
+    var fotoActual by remember { mutableStateOf<String?>(null) }
+    var imagenUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var imagen by remember { mutableStateOf<ImagenSeleccionada?>(null) }
+
+    // Al editar: pedir el ítem al servidor (GET por id) y llenar los campos
+    LaunchedEffect(id) {
+        if (id != null) viewModel.cargarDetalle(id) else viewModel.limpiarDetalle()
+    }
+    LaunchedEffect(detalle) {
+        detalle?.takeIf { it.id == id }?.let {
+            nombre = it.nombre
+            descripcion = it.descripcion.orEmpty()
+            precioTexto = it.precio.toString()
+            stockTexto = it.stock.toString()
+            tipo = it.tipo
+            fotoActual = it.foto
+        }
+    }
+    
+
+    LaunchedEffect(mensaje) {
+        mensaje?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.mensajeMostrado()
+        }
+    }
+
+    // Galería: lee los bytes de la imagen elegida fuera del hilo principal
+    val selector = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            imagenUri = uri
+            scope.launch {
+                imagen = withContext(Dispatchers.IO) {
+                    val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    context.contentResolver.openInputStream(uri)
+                        ?.use { ImagenSeleccionada(it.readBytes(), mime) }
+                }
+            }
+        }
+    }
+
+    val precio = precioTexto.toDoubleOrNull()
+    val stock = if (tipo == TipoItem.SERVICIO) 0 else stockTexto.toIntOrNull()
+    val valido = nombre.isNotBlank() && precio != null && precio > 0 &&
+        stock != null && stock >= 0
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (id == null) "Nuevo registro" else "Editar registro") },
+                navigationIcon = {
+                    IconButton(onClick = onVolver) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Vista previa: la foto recién elegida o, si no hay, la que ya tiene en el servidor
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                val modelo: Any? = imagenUri ?: ApiConfig.urlFoto(fotoActual)
+                if (modelo != null) {
+                    AsyncImage(
+                        model = modelo,
+                        contentDescription = "Foto",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text("Sin foto")
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    selector.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (imagenUri == null) "Elegir foto" else "Cambiar foto") }
+
+            // Tipo
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TipoItem.entries.forEach { opcion ->
+                    RadioButton(selected = tipo == opcion, onClick = { tipo = opcion })
+                    Text(
+                        opcion.name.lowercase().replaceFirstChar { it.uppercase() },
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                value = nombre,
+                onValueChange = { if (it.length <= 100) nombre = it },
+                label = { Text("Nombre") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = descripcion,
+                onValueChange = { if (it.length <= 250) descripcion = it },
+                label = { Text("Descripción (opcional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = precioTexto,
+                onValueChange = { precioTexto = it },
+                label = { Text("Precio") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (tipo == TipoItem.REPUESTO) {
+                OutlinedTextField(
+                    value = stockTexto,
+                    onValueChange = { stockTexto = it },
+                    label = { Text("Stock") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Button(
+                enabled = valido && !guardando,
+                onClick = {
+                    val dto = RepuestoDto(
+                        id = id,
+                        nombre = nombre.trim(),
+                        descripcion = descripcion.trim().ifBlank { null },
+                        precio = precio!!,
+                        stock = stock!!,
+                        foto = fotoActual,
+                        tipo = tipo
+                    )
+                    viewModel.guardar(id, dto, imagen, onVolver)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (guardando) "Guardando..." else "Guardar") }
+        }
+    }
+}
+```
+
+Puntos que conviene explicar en clase:
+
+- `imagenUri` sirve solo para la vista previa; lo que viaja al servidor es `imagen` (los bytes).
+- Si el usuario no toca la galería, `imagen` queda en `null` y el repositorio no envía la parte `imagen`.
+- `TipoItem.entries` recorre el enum para dibujar una opción por cada valor, de modo que si el servidor agrega un tipo nuevo, solo cambia el enum.
+
+### Límite de tamaño en el servidor
+
+Spring Boot acepta por defecto archivos de hasta 1 MB, y una foto de teléfono suele pasar de ese tamaño. Si la subida falla con `413` o `500`, el docente sube el límite en `application.properties` del proyecto Spring:
+
+```properties
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+```
+
+## Paso 8: barra de navegación inferior y navegación
+
+Este paso conecta todo: la **barra inferior** (`NavigationBar`) con las tres pestañas y un `NavHost` con cinco rutas. Es la misma estructura que se usó en la guía `5_1`: un `Scaffold` raíz con la barra y, dentro, el `NavHost` con las pantallas.
+
+### navigation/Destino.kt
+
+Cada pestaña de la barra inferior se describe con una ruta, un título y un icono. Una `sealed class` agrupa las tres y evita escribir las rutas como texto suelto en varios archivos. El detalle y el formulario no están aquí porque no son pestañas.
+
+```kotlin
+package com.example.autoparts.navigation
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.ui.graphics.vector.ImageVector
+
+sealed class Destino(val ruta: String, val titulo: String, val icono: ImageVector) {
+    data object Catalogo : Destino("catalogo", "Catálogo", Icons.Default.ShoppingCart)
+    data object Repuestos : Destino("repuestos", "Repuestos", Icons.Default.Build)
+    data object Servicios : Destino("servicios", "Servicios", Icons.Default.Settings)
+}
+
+val destinosInferiores = listOf(Destino.Catalogo, Destino.Repuestos, Destino.Servicios)
+```
+
+### navigation/NavManager.kt
+
+Aquí vive el `Scaffold` raíz. La barra inferior se dibuja **solo cuando la ruta actual es una pestaña**: en el detalle y en el formulario desaparece, para dejar espacio al contenido.
+
+```kotlin
+package com.example.autoparts.navigation
+
+// Imports poco evidentes: androidx.navigation.NavGraph.Companion.findStartDestination,
+// androidx.navigation.compose.currentBackStackEntryAsState, androidx.navigation.navArgument,
+// androidx.navigation.NavType y androidx.compose.foundation.layout.WindowInsets
+@Composable
+fun NavManager(viewModel: RepuestosViewModel) {
+    val navController = rememberNavController()
+    val entradaActual by navController.currentBackStackEntryAsState()
+    val rutaActual = entradaActual?.destination?.route
+
+    val abrirDetalle = { id: Int -> navController.navigate("detalle/$id") }
+    val abrirNuevo = { navController.navigate("formulario") }
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            if (destinosInferiores.any { it.ruta == rutaActual }) {
+                NavigationBar {
+                    destinosInferiores.forEach { destino ->
+                        NavigationBarItem(
+                            selected = rutaActual == destino.ruta,
+                            onClick = {
+                                navController.navigate(destino.ruta) {
+                                    // Evita apilar pestañas y conserva el estado de cada una (por ejemplo, el buscador)
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { Icon(destino.icono, contentDescription = destino.titulo) },
+                            label = { Text(destino.titulo) }
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = Destino.Catalogo.ruta,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            // Las tres pestañas usan la misma pantalla, con distinto tipo
+            composable(Destino.Catalogo.ruta) {
+                ListaRepuestosView(viewModel, tipo = null, titulo = Destino.Catalogo.titulo,
+                    onAbrirDetalle = abrirDetalle, onNuevo = abrirNuevo)
+            }
+            composable(Destino.Repuestos.ruta) {
+                ListaRepuestosView(viewModel, tipo = TipoItem.REPUESTO, titulo = Destino.Repuestos.titulo,
+                    onAbrirDetalle = abrirDetalle, onNuevo = abrirNuevo)
+            }
+            composable(Destino.Servicios.ruta) {
+                ListaRepuestosView(viewModel, tipo = TipoItem.SERVICIO, titulo = Destino.Servicios.titulo,
+                    onAbrirDetalle = abrirDetalle, onNuevo = abrirNuevo)
+            }
+
+            composable(
+                route = "detalle/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.IntType })
+            ) { entrada ->
+                val id = entrada.arguments?.getInt("id") ?: return@composable
+                DetalleRepuestoView(
+                    viewModel = viewModel,
+                    id = id,
+                    onVolver = { navController.popBackStack() },
+                    onEditar = { navController.navigate("formulario?id=$id") }
+                )
+            }
+
+            composable(
+                route = "formulario?id={id}",
+                arguments = listOf(navArgument("id") {
+                    type = NavType.IntType
+                    defaultValue = -1          // -1 significa "registro nuevo"
+                })
+            ) { entrada ->
+                val id = entrada.arguments?.getInt("id")?.takeIf { it != -1 }
+                FormularioRepuestoView(
+                    viewModel = viewModel,
+                    id = id,
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+        }
+    }
+}
+```
+
+- **Las rutas:** `catalogo`, `repuestos` y `servicios` son las pestañas; `detalle/{id}` recibe el identificador del ítem; `formulario` abre un registro nuevo y `formulario?id=5` edita el ítem 5.
+- **`saveState` y `restoreState`:** al cambiar de pestaña y volver, la lista conserva su posición y el texto del buscador, porque se guardan junto con la entrada de la pila.
+- **Márgenes del sistema (`WindowInsets`):** el `Scaffold` raíz y el de `ListaRepuestosView` usan `WindowInsets(0, 0, 0, 0)` porque la `NavigationBar` ya reserva el espacio de los botones del sistema; si se dejara el valor por defecto en ambos, quedaría un espacio doble debajo de la lista. El detalle y el formulario sí lo conservan, porque ahí no hay barra inferior.
+- **Un solo `ViewModel`:** las pantallas lo reciben como parámetro y comparten la lista, el detalle y los mensajes.
+
+### MainActivity.kt
+
+`MainActivity` queda muy corta: solo crea el `ViewModel` una vez, a nivel de la actividad, y se lo entrega a `NavManager`. Como la actividad lleva `@AndroidEntryPoint`, `viewModel()` usa a Hilt de forma automática y entrega el `ViewModel` con su repositorio ya armado.
+
+```kotlin
+package com.example.autoparts
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            AutoPartsTheme {
+                val viewModel: RepuestosViewModel = viewModel()
+                NavManager(viewModel)
+            }
+        }
+    }
+}
+```
+
+El nombre del tema (`AutoPartsTheme`) es el que generó la plantilla para este proyecto; si el suyo se llama distinto, use ese.
+
+### Lista de comprobación
+
+Conecte el teléfono, ejecute `adb reverse tcp:8080 tcp:8080` y pruebe cada caso:
+
+| Acción | Resultado esperado |
+| --- | --- |
+| Abrir la app | Pestaña **Catálogo** con 8 tarjetas y la barra inferior con las 3 pestañas |
+| Tocar **Repuestos** y luego **Servicios** | Cinco tarjetas con foto; luego tres con el icono de herramienta |
+| Escribir `freno` en el buscador | Quedan 3 tarjetas; la **X** borra el texto |
+| Escribir un texto que no existe | Aparece "Sin resultados para ..." |
+| Tocar una tarjeta | Se abre el **detalle**: foto grande, tipo, precio, existencias y descripción completa; la barra inferior desaparece |
+| Flecha de retroceso en el detalle | Vuelve a la misma pestaña, con el buscador como se dejó |
+| Botón **+** y crear un servicio sin foto | "Registrado correctamente"; el nuevo servicio aparece en Catálogo y en Servicios |
+| Detalle, **Editar** y cambiar el precio | Al guardar vuelve al detalle con el precio nuevo |
+| Detalle y **Eliminar** | Pide confirmación, regresa a la lista y el servidor responde `200` |
+| Detener el contenedor y tocar Actualizar | Mensaje de error con el botón Reintentar |
+
+## Errores frecuentes y soluciones
+
+La mayoría de los fallos en el primer intento son de conexión o de configuración del servidor, no del código Kotlin. Cuando algo falle, mire primero Logcat (filtre por `OkHttp`) para ver el código HTTP que respondió el servidor.
+
+| Síntoma | Causa probable | Solución |
+| --- | --- | --- |
+| `CLEARTEXT communication to localhost not permitted` | Falta habilitar HTTP sin cifrar | Agregar `android:usesCleartextTraffic="true"` en `<application>` (Paso 0.4) |
+| `Failed to connect to localhost/127.0.0.1:8080` | `adb reverse` no se ejecutó o se perdió, o el contenedor está detenido | Repetir `adb reverse tcp:8080 tcp:8080`, revisar `docker ps` y probar la URL en Chrome del teléfono |
+| `IllegalArgumentException: baseUrl must end in /` | La URL base no termina en `/` | Escribir `http://localhost:8080/api/` |
+| La lista carga pero las fotos salen en blanco | Falta `coil-network-okhttp`, o `/images/` exige autenticación | Agregar la dependencia (Paso 1.2) y probar `Invoke-WebRequest -Method Head` sobre una foto |
+| `Unresolved reference: AsyncImage` | Import de Coil 2 | Usar `import coil3.compose.AsyncImage` |
+| `JsonSyntaxException: Expected BEGIN_ARRAY but was ...` | El servidor devolvió algo que no es la lista (página de login, objeto de error) | Probar el endpoint con `Invoke-WebRequest` y revisar el código HTTP |
+| `401` o `403` en cualquier petición | La API exige token, o CSRF está activo en los `POST`, `PUT` y `DELETE` | Aplicar el Paso 0.2 o continuar con la guía 9\_3 |
+| `415` al crear o editar | La parte `dto` no viaja como `application/json`, o falta `@Multipart` | Revisar `aParteJson()` en el repositorio y la anotación en `RepuestoApi` |
+| `400` al crear o editar | Un campo no cumple lo que valida el servidor (nombre vacío, tipo fuera del enum) | Revisar los datos enviados en Logcat y el mensaje de la respuesta |
+| `413` o `500` al subir una foto | El servidor limita los archivos a 1 MB por defecto | Subir `spring.servlet.multipart.max-file-size` (Paso 7) |
+| `500` al eliminar un registro | El ítem está relacionado con otros datos en la base | Verificar en el servidor si otra tabla lo referencia; no es un fallo de la app |
+
+Errores propios de Hilt en este proyecto (la guía `8_1` los explica con más detalle):
+
+- **La app se cierra al abrir, con *Hilt Activity must be attached to an @HiltAndroidApp Application*:** falta `@HiltAndroidApp` en `AutoPartsApplication` o `android:name=".AutoPartsApplication"` en el manifiesto.
+- **`NoSuchMethodException: RepuestosViewModel.<init> []`:** si en el registro no aparece `HiltViewModelFactory`, falta `@AndroidEntryPoint` en `MainActivity`; si aparece, al `ViewModel` le falta `@HiltViewModel` o `@Inject constructor`.
+- **`[Dagger/MissingBinding] RepuestoApi cannot be provided`:** `NetworkModule` no tiene `@Module` o `@InstallIn(SingletonComponent::class)`, o falta la función `@Provides` de `RepuestoApi`.
+- **`[Hilt] @HiltViewModel is only supported on types that subclass androidx.lifecycle.ViewModel`:** la anotación quedó sobre el repositorio. Los repositorios llevan solo `@Inject constructor`.
+- **Errores en `..._Impl.kt` o *incompatible version of Kotlin*:** el valor de `kotlin` en `libs.versions.toml` es anterior al que piden las librerías; use `2.4.21`.
+
+Errores propios de la navegación y del buscador:
+
+- **Espacio doble debajo de la lista, o el último elemento queda tapado por la barra:** falta `contentWindowInsets = WindowInsets(0, 0, 0, 0)` en el `Scaffold` raíz o en el de `ListaRepuestosView` (explicado en el Paso 8).
+- **`IllegalArgumentException: Navigation destination that matches request ... cannot be found in the navigation graph`:** la ruta usada en `navigate(...)` no coincide con la declarada en `composable(...)`; revise `"detalle/$id"` y `"formulario?id=$id"`.
+- **El detalle se queda con el indicador de carga:** `GET /repuestos-servicios/{id}` falló (el ítem ya no existe o no hay conexión). El motivo aparece en el `Snackbar`; vuelva a la lista y actualice.
+- **El buscador no encuentra un registro que sí existe:** la comparación ignora mayúsculas pero no acentos (`diametro` no encuentra `díametro`). Normalizar los acentos con `java.text.Normalizer` queda como ejercicio.
+- **Al cambiar de pestaña se pierde lo escrito en el buscador:** falta `saveState = true` y `restoreState = true` en la navegación de la barra, o el texto se guarda con `remember` en lugar de `rememberSaveable`.
+
+## Ejercicio de cierre y adelanto de la guía 9\_3
+
+### Ejercicio
+
+Los tres primeros se resuelven solo en la capa de interfaz y en el ViewModel; el cuarto aplica todo lo aprendido a otra API.
+
+1. **Filtro por tipo:** tres opciones (Todos, Repuestos, Servicios) sobre la lista, filtrando en la app los datos que ya llegaron.
+2. **Aviso de stock:** en las tarjetas de repuestos con `stock == 0`, mostrar "Sin existencias" en color de error.
+3. **Buscador por nombre:** un campo de búsqueda tipo píldora en la `TopAppBar`, como el de AgendaApp, que filtre mientras se escribe.
+4. **Reto con su propia API:** copiar el proyecto y conectarlo a la API PHP o Spring de otro módulo, cambiando la `baseUrl`, el DTO y las rutas de `RepuestoApi`. Entregar una captura de la lista y otra del formulario guardando un registro.
+
+### Qué sigue en la guía 9\_3
+
+La API real no tiene los endpoints abiertos: `POST`, `PUT` y `DELETE` exigen rol, y el login vive en otro servicio (`http://127.0.0.1:8000/login`, método `POST` con `username` y `password`). La guía 9\_3 parte de este mismo proyecto y agrega:
+
+1. `LoginApi`, con su propio Retrofit apuntando al puerto 8000.
+2. Guardar el token en DataStore, como en la guía 7\_2.
+3. Un interceptor de OkHttp que añade `Authorization: Bearer <token>` a cada petición al catálogo; con Hilt se agrega en NetworkModule, al construir el OkHttpClient.
+4. Una pantalla de inicio de sesión y el manejo de `401` y `403`.
+5. Revertir los cambios temporales del Paso 0.2 en el servidor.
+
+Como hay dos servicios, hará falta un segundo enlace: `adb reverse tcp:8000 tcp:8000`.
